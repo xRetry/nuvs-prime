@@ -1,105 +1,133 @@
 package main
 
 import (
-    "strconv"
-    "net/http"
-    "fmt"
-    "io/ioutil"
-    "strings"
-	"math"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strconv"
+	"strings"
 )
 
-type ReturnChannel chan int, bool, error
-type InputChannel chan ReturnChannel, int
+type PrimeResult struct {
+	Number  int
+	IsPrime bool
+	Error   error
+}
 
+type PrimeQuery struct {
+	Number  int
+	RetChan chan PrimeResult
+}
 
-func initServers() InputChannel {
+func initServers() (chan PrimeQuery, error) {
 	availAddrs, err := findAvailableServers()
 	if err != nil {
-		fmt.Fprintf(w, "Address service not reachable\n")
-		return
+		return nil, err
 	}
 
-	inputChan := make(InputChannel)
+	inputChan := make(chan PrimeQuery)
 
-	for _, addr := range availAddrs {
-		go spawnServer(addr, inputChan)		
+	for _, addr := range *availAddrs {
+		go makeServerConnection(addr, inputChan)
 	}
 
-	return inputChan
+	return inputChan, nil
 }
 
 type NumberGenerator struct {
-	num_start int
-	num_closest *int
-	num_last *int
-	no_answer map[int]Struct{}
+	numStart   int
+	numClosest *int
+	noAnswer   []int
 }
 
-func makeNumberGen(num_start int) NumberGenerator {
+func makeNumberGen(numStart int) NumberGenerator {
 	return NumberGenerator{
-		num_start: num_start,
-		num_closest: nil,
-		num_last: nil
-		no_answer: make(map[int]Struct{})
+		numStart:   numStart,
+		numClosest: nil,
+		noAnswer:   []int{numStart - 1},
 	}
 }
 
 func (g *NumberGenerator) Next() int {
-	num_new := g.num_start+1
-	switch last := g.num_last; {
-		case last == nil:
-			num_new = g.num_start
-		case *last < g.num_start:
-			num_new = g.num_last + 2*math.Abs(g.num_last - g.num_start) + 1
-		case *last > g.num_start
-			num_new = g.num_last - 2*math.Abs(g.num_last - g.num_start)
- 	}
-
-	*g.num_last = num_new
-	g.no_answer[num_last] = Struct{}
-	return num_last
+	numNext := g.noAnswer[len(g.noAnswer)-1] + 1
+	g.noAnswer = append(g.noAnswer, numNext)
+	return numNext
 }
 
-func (g *NumberGenerator) CheckResult(number int, isPrime bool) bool {
-	if
-	g.no_an
+// TODO: Change to return prime number instead of bool
+func (g *NumberGenerator) CheckResult(result PrimeResult) bool {
+	if result.IsPrime {
+		if result.Number < *g.numClosest {
+			*g.numClosest = result.Number
+		}
+	}
+
+	idxNum := binarySearch(g.noAnswer, result.Number)
+	if idxNum == 0 {
+		return true
+	}
+
+	g.noAnswer = append(g.noAnswer[:idxNum], g.noAnswer[idxNum+1:]...)
+	return false
 }
 
-func findPrime(w http.ResponseWriter, req *http.Request, inputChan InputChannel) {
+func binarySearch(arr []int, key int) int {
+	high := len(arr) - 1
+	low := 0
+	var mid int
+	for low <= high {
+		mid = (high + low) / 2
+		if arr[mid] == key {
+			return mid
+		} else if arr[mid] > key {
+			high = mid
+		} else {
+			low = mid + 1
+		}
+	}
+	return -1
+}
+
+func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQuery) {
 	number, err := strconv.Atoi(req.URL.Query().Get("val"))
 	if err != nil {
 		fmt.Fprintf(w, "Invalid input!\n")
 		return
 	}
 
-    fmt.Println(number)
+	fmt.Println(number)
 
-	returnChan := make(ReturnChannel)
-	
+	returnChan := make(chan PrimeResult)
+
 	numberGen := makeNumberGen(number)
 
-	for i:=0; i<5; i++ {
-		inputChan <- returnChan, numberGen.Next()
+	for i := 0; i < 5; i++ {
+		inputChan <- PrimeQuery{
+			Number:  numberGen.Next(),
+			RetChan: returnChan,
+		}
 	}
-    
-	for iterNumbers.HasNext() {
-		number, isPrime, err <- returnChan
 
-		isClosest := numberGen.CheckResult(number, isPrime) // TODO: Add method
+	for numberGen.HasNext() {
+		result := <-returnChan
+
+		isClosest := numberGen.CheckResult(result) // TODO: Add method
 		if isClosest {
 			fmt.Fprintf(w, "%d\n", number)
 			break
 		}
 
-		inputChan <- returnChan, iterNumbers.next(1)
+		inputChan <- PrimeQuery{
+			Number:  numberGen.Next(),
+			RetChan: returnChan,
+		}
 	}
 
 }
 
 func findAvailableServers() (*[]string, error) {
 
-    resp, err := http.Get("http://10.21.0.13:2020/api/v1.0/active-http-services")
+	resp, err := http.Get("http://10.21.0.13:2020/api/v1.0/active-http-services")
 	if err != nil {
 		return nil, fmt.Errorf("Unable to connect to server")
 	}
@@ -108,39 +136,57 @@ func findAvailableServers() (*[]string, error) {
 		return nil, fmt.Errorf("Unable to read body")
 	}
 
-    //TODO: Parse json, create IP list
+	//TODO: Parse json, create IP list
 	return strings.Split(string(body), "\n")[0], nil
 }
 
-func spawnServer(addr string, inputChan <-InputChannel) {
+func makeServerConnection(addr string, inputChan <-chan PrimeQuery) {
 	for {
-		returnChan, number := <- inputChan
-        resp, err := http.Get(fmt.Sprintf("http://%s:2000/isPrime?val=%d", addr, number))
+		query := <-inputChan
+		resp, err := http.Get(fmt.Sprintf("http://%s:2000/isPrime?val=%d", addr, query.Number))
 
-        if err != nil {
-            returnChan <- number, false, fmt.Errorf("Unable to connect to server")
+		if err != nil {
+			query.RetChan <- PrimeResult{
+				Number:  query.Number,
+				IsPrime: false,
+				Error:   fmt.Errorf("Unable to connect to server"),
+			}
 			continue
-        }
+		}
 
-        body, err := ioutil.ReadAll(resp.Body)
-        if err != nil {
-            returnChan <- number, false, fmt.Errorf("Unable to read body")
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			query.RetChan <- PrimeResult{
+				Number:  query.Number,
+				IsPrime: false,
+				Error:   fmt.Errorf("Unable to read body"),
+			}
 			continue
-        }
+		}
 
-        if string(body) == "true" {
-            returnChan <- number, true, nil
+		if string(body) == "true" {
+			query.RetChan <- PrimeResult{
+				Number:  query.Number,
+				IsPrime: true,
+				Error:   nil,
+			}
 			continue
-        }
+		}
 
-		returnChan <- number, false, nil
+		query.RetChan <- PrimeResult{
+			Number:  query.Number,
+			IsPrime: false,
+			Error:   nil,
+		}
 	}
 }
 
-
 func main() {
-	inputChan = initServers()
-    http.HandleFunc("/findPrime", 
-		func(w http.ResponseWriter, req *http.Request) { findPrime(w, req, inputChan) } 
+	inputChan, err := initServers()
+	if err == nil {
+		// TODO: Handle error
+	}
+	http.HandleFunc("/findPrime",
+		func(w http.ResponseWriter, req *http.Request) { findPrime(w, req, inputChan) },
 	)
 }
