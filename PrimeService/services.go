@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 )
@@ -26,6 +27,7 @@ type AvailableService struct {
 }
 
 func initServers() (chan PrimeQuery, error) {
+	log.Println("Starting service initialization")
 	availAddrs, err := findAvailableServers()
 	if err != nil {
 		return nil, err
@@ -41,6 +43,7 @@ func initServers() (chan PrimeQuery, error) {
 }
 
 func findAvailableServers() ([]string, error) {
+	log.Println("Finding available services")
 	client := http.Client{Timeout: 10 * time.Second}
 
 	resp, err := client.Get("http://10.21.0.13:2020/api/v1.0/active-http-services")
@@ -59,10 +62,12 @@ func findAvailableServers() ([]string, error) {
 	for _, service := range availServices {
 		addrs = append(addrs, service.Ip)
 	}
+	log.Printf("Services found: %d\n", len(addrs))
 	return addrs, nil
 }
 
 func makeServerConnection(addr string, inputChan <-chan PrimeQuery) {
+	log.Printf("Conecction started on address: %s\n", addr)
 	for {
 		query := <-inputChan
 		resp, err := http.Get(fmt.Sprintf("http://%s:2000/isPrime?val=%d", addr, query.Number))

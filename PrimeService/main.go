@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 )
 
 func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQuery) {
+	log.Println("Serving content")
 	number, err := strconv.Atoi(req.URL.Query().Get("val"))
 	if err != nil {
 		fmt.Fprintf(w, "Invalid input!\n")
@@ -49,10 +51,12 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 
 func main() {
 	inputChan, err := initServers()
-	if err == nil {
-		// TODO: Handle error
+	if err != nil {
+		log.Fatalf("Unable to initialize server\n\tError: %s", err)
 	}
 	http.HandleFunc("/findPrime",
 		func(w http.ResponseWriter, req *http.Request) { findPrime(w, req, inputChan) },
 	)
+
+	http.ListenAndServe(":2030", nil)
 }
