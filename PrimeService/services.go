@@ -23,7 +23,7 @@ type PrimeQuery struct {
 type AvailableService struct {
 	Ip     string `json:"ip"`
 	Header string `json:"header"`
-	Valid  string `json:"valid"`
+	Valid  int    `json:"valid"`
 }
 
 func initServers() (chan PrimeQuery, error) {
@@ -67,7 +67,7 @@ func findAvailableServers() ([]string, error) {
 }
 
 func makeServerConnection(addr string, inputChan <-chan PrimeQuery) {
-	log.Printf("Conecction started on address: %s\n", addr)
+	log.Printf("Connection started on address: %s\n", addr)
 	for {
 		query := <-inputChan
 		resp, err := http.Get(fmt.Sprintf("http://%s:2000/isPrime?val=%d", addr, query.Number))
