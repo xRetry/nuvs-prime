@@ -1,5 +1,9 @@
 package main
 
+import (
+	"log"
+)
+
 type NumberManager struct {
 	numStart     int
 	primeClosest *int
@@ -7,6 +11,7 @@ type NumberManager struct {
 }
 
 func makeNumberManager(numStart int) NumberManager {
+	log.Println("Initializing number manager")
 	return NumberManager{
 		numStart:     numStart,
 		primeClosest: nil,
@@ -29,12 +34,16 @@ func (g *NumberManager) Next() int {
 }
 
 func (g *NumberManager) CheckResult(result PrimeResult) *int {
+	log.Printf("Checking result: number=%d, result=%s\n", result.Number, result.IsPrime)
 
 	idxNum := binarySearch(g.noAnswer, result.Number)
 	g.noAnswer = append(g.noAnswer[:idxNum], g.noAnswer[idxNum+1:]...)
 
 	if result.IsPrime {
-		if result.Number < *g.primeClosest {
+		log.Printf("Number: %d, No Answer: %s\n", result.IsPrime, g.noAnswer)
+		if g.primeClosest == nil {
+			g.primeClosest = &result.Number
+		} else if result.Number < *g.primeClosest {
 			*g.primeClosest = result.Number
 		}
 

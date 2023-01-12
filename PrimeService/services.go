@@ -68,9 +68,11 @@ func findAvailableServers() ([]string, error) {
 
 func makeServerConnection(addr string, inputChan <-chan PrimeQuery) {
 	log.Printf("Connection started on address: %s\n", addr)
+	client := http.Client{Timeout: 5 * time.Second}
+
 	for {
 		query := <-inputChan
-		resp, err := http.Get(fmt.Sprintf("http://%s:2000/isPrime?val=%d", addr, query.Number))
+		resp, err := client.Get(fmt.Sprintf("http://%s:2000/isPrime?val=%d", addr, query.Number))
 
 		if err != nil {
 			query.RetChan <- PrimeResult{
