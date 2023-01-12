@@ -8,14 +8,15 @@ type NumberManager struct {
 	numStart     int
 	primeClosest *int
 	noAnswer     []int
+	resendQueue  []int
 }
 
 func makeNumberManager(numStart int) NumberManager {
 	log.Println("Initializing number manager")
 	return NumberManager{
-		numStart:     numStart,
-		primeClosest: nil,
-		noAnswer:     []int{numStart - 1},
+		numStart:    numStart,
+		noAnswer:    []int{numStart - 1},
+		resendQueue: make([]int, 0),
 	}
 }
 
@@ -29,12 +30,24 @@ func (g NumberManager) HasNext() bool {
 
 func (g *NumberManager) Next() int {
 	numNext := g.noAnswer[len(g.noAnswer)-1] + 1
-	g.noAnswer = append(g.noAnswer, numNext)
+
+	if len(g.resendQueue) > 0 {
+		numNext = g.resendQueue[0]
+		g.resendQueue = g.resendQueue[1:]
+	} else {
+		g.noAnswer = append(g.noAnswer, numNext)
+	}
+
 	return numNext
 }
 
 func (g *NumberManager) CheckResult(result PrimeResult) *int {
 	log.Printf("Checking result: number=%d, result=%s\n", result.Number, result.IsPrime)
+
+	if result.Error != nil {
+		g.resendQueue = append(g.resendQueue, result.Number)
+		return nil
+	}
 
 	idxNum := binarySearch(g.noAnswer, result.Number)
 	g.noAnswer = append(g.noAnswer[:idxNum], g.noAnswer[idxNum+1:]...)
