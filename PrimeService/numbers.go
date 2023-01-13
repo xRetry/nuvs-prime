@@ -5,18 +5,20 @@ import (
 )
 
 type NumberManager struct {
-	numStart     int
-	primeClosest *int
-	noAnswer     []int
-	resendQueue  []int
+	numStart        int
+	primeClosest    *int
+	noAnswer        []int
+	resendQueue     []int
+	primeCanditates map[int][2]int
 }
 
 func makeNumberManager(numStart int) NumberManager {
 	log.Println("Initializing number manager")
 	return NumberManager{
-		numStart:    numStart,
-		noAnswer:    []int{numStart - 1},
-		resendQueue: make([]int, 0),
+		numStart:        numStart,
+		noAnswer:        []int{numStart - 1},
+		resendQueue:     make([]int, 0),
+		primeCanditates: make(map[int][2]int),
 	}
 }
 
@@ -28,14 +30,18 @@ func (g NumberManager) HasNext() bool {
 	return true
 }
 
-func (g *NumberManager) Next() int {
-	numNext := g.noAnswer[len(g.noAnswer)-1] + 1
+func (g *NumberManager) Next() *int {
+	var numNext *int
 
 	if len(g.resendQueue) > 0 {
-		numNext = g.resendQueue[0]
+		numNext = &g.resendQueue[0]
 		g.resendQueue = g.resendQueue[1:]
+	} else if g.primeClosest == nil {
+		numOld := g.noAnswer[len(g.noAnswer)-1] + 1
+		numNext = &numOld
+
 	} else {
-		g.noAnswer = append(g.noAnswer, numNext)
+		g.noAnswer = append(g.noAnswer, *numNext)
 	}
 
 	return numNext
@@ -53,15 +59,35 @@ func (g *NumberManager) CheckResult(result PrimeResult) *int {
 	g.noAnswer = append(g.noAnswer[:idxNum], g.noAnswer[idxNum+1:]...)
 
 	if result.IsPrime {
+
 		log.Printf("Number: %d, No Answer: %s\n", result.IsPrime, g.noAnswer)
-		if g.primeClosest == nil {
-			g.primeClosest = &result.Number
-		} else if result.Number < *g.primeClosest {
-			*g.primeClosest = result.Number
+
+		count, isIn := g.primeCanditates[result.Number]
+		if !isIn {
+			g.primeCanditates[result.Number] = [2]int{0, 0}
+			g.noAnswer = append(g.noAnswer, result.Number)
+			g.noAnswer = append(g.noAnswer, result.Number)
+			return nil
 		}
 
-		if *g.primeClosest < g.noAnswer[0] {
-			return g.primeClosest
+		count[0] += 1
+		if result.IsPrime {
+			count[1] += 1
+		}
+
+		if count[0] == 2 {
+			delete(g.primeCanditates, result.Number)
+			if count[1] > 0 {
+				if g.primeClosest == nil {
+					g.primeClosest = &result.Number
+				} else if result.Number < *g.primeClosest {
+					*g.primeClosest = result.Number
+				}
+
+				if *g.primeClosest < g.noAnswer[0] {
+					return g.primeClosest
+				}
+			}
 		}
 	}
 

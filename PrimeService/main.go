@@ -21,7 +21,7 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 
 	for i := 0; i < 5; i++ {
 		inputChan <- PrimeQuery{
-			Number:  numberManager.Next(),
+			Number:  *numberManager.Next(),
 			RetChan: returnChan,
 		}
 	}
@@ -29,10 +29,16 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 	for numberManager.HasNext() {
 		result := <-returnChan
 
+		numNext := numberManager.Next()
+
+		if numNext == nil {
+			continue
+		}
+
 		ptrClosest := numberManager.CheckResult(result)
 		if ptrClosest == nil {
 			inputChan <- PrimeQuery{
-				Number:  numberManager.Next(),
+				Number:  *numNext,
 				RetChan: returnChan,
 			}
 			continue
