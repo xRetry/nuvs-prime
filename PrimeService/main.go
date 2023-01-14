@@ -9,16 +9,20 @@ import (
 
 func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQuery) {
 	log.Println("Serving content")
+	// Converting start value from URL
 	number, err := strconv.Atoi(req.URL.Query().Get("val"))
 	if err != nil {
 		fmt.Fprintf(w, "Invalid input!\n")
 		return
 	}
 
+	// Creating client channel for results
 	returnChan := make(chan PrimeResult)
 
+	// Creating number manager
 	numberManager := makeNumberManager(number)
 
+	// Sending 5 prime queries
 	for i := 0; i < 5; i++ {
 		inputChan <- PrimeQuery{
 			Number:  *numberManager.Next(),
@@ -26,6 +30,7 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 		}
 	}
 
+	// Sending a new query after each result
 	for numberManager.HasNext() {
 		result := <-returnChan
 
@@ -35,22 +40,18 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 			continue
 		}
 
-		ptrClosest := numberManager.CheckResult(result)
-		if ptrClosest == nil {
-			inputChan <- PrimeQuery{
-				Number:  *numNext,
-				RetChan: returnChan,
-			}
-			continue
+		numberManager.CheckResult(result)
+		inputChan <- PrimeQuery{
+			Number:  *numNext,
+			RetChan: returnChan,
 		}
+	}
 
-		numClosest := *ptrClosest
-
-		// TODO: Verify result
-		// TODO: Interrupt other queries
-
-		fmt.Fprintf(w, "%d\n", numClosest)
-		break
+	solution := numberManager.GetSolution()
+	if solution == nil {
+		fmt.Fprintln(w, "No solution found!")
+	} else {
+		fmt.Fprintf(w, "%d\n", *solution)
 	}
 
 }
