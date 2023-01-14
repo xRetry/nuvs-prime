@@ -16,7 +16,7 @@ func makeNumberManager(numStart int) NumberManager {
 	log.Println("Initializing number manager")
 	return NumberManager{
 		numStart:        numStart,
-		noAnswer:        []int{numStart - 1},
+		noAnswer:        []int{numStart},
 		resendQueue:     make([]int, 0),
 		primeCanditates: make(map[int][2]int),
 	}
@@ -69,14 +69,14 @@ func (nm *NumberManager) CheckResult(result PrimeResult) {
 	nm.noAnswer = append(nm.noAnswer[:idxNum], nm.noAnswer[idxNum+1:]...)
 
 	if result.IsPrime {
-		log.Printf("Number: %d, No Answer: %s\n", result.IsPrime, nm.noAnswer)
+		log.Printf("Number: %d, No Answer: %s\n", result.Number, nm.noAnswer)
 
 		// Resend number twice to verify the result
 		count, isIn := nm.primeCanditates[result.Number]
 		if !isIn {
 			nm.primeCanditates[result.Number] = [2]int{0, 0}
-			nm.noAnswer = append(nm.noAnswer, result.Number)
-			nm.noAnswer = append(nm.noAnswer, result.Number)
+			nm.resendQueue = append(nm.resendQueue, result.Number)
+			nm.resendQueue = append(nm.resendQueue, result.Number)
 			return
 		}
 
