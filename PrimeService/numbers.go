@@ -64,22 +64,9 @@ func (nm *NumberManager) CheckResult(result PrimeResult) {
 		return
 	}
 
-	// Find index of number in noAnswer slice and remove from slice
-	idxNum := binarySearch(nm.noAnswer, result.Number)
-	nm.noAnswer = append(nm.noAnswer[:idxNum], nm.noAnswer[idxNum+1:]...)
-
-	if result.IsPrime {
-		log.Printf("Number: %d, No Answer: %s\n", result.Number, nm.noAnswer)
-
-		// Resend number twice to verify the result
-		count, isIn := nm.primeCanditates[result.Number]
-		if !isIn {
-			nm.primeCanditates[result.Number] = [2]int{0, 0}
-			nm.resendQueue = append(nm.resendQueue, result.Number)
-			nm.resendQueue = append(nm.resendQueue, result.Number)
-			return
-		}
-
+	// Number is already a candidate
+	count, isIn := nm.primeCanditates[result.Number]
+	if isIn {
 		// Increase the verification counts
 		count[0] += 1
 		if result.IsPrime {
@@ -101,6 +88,22 @@ func (nm *NumberManager) CheckResult(result PrimeResult) {
 
 		// Update verification counts if results are pending
 		nm.primeCanditates[result.Number] = count
+		return
+	}
+
+	// Find index of number in noAnswer slice and remove from slice
+	idxNum := binarySearch(nm.noAnswer, result.Number)
+	nm.noAnswer = append(nm.noAnswer[:idxNum], nm.noAnswer[idxNum+1:]...)
+
+	// Resend number twice to verify the result
+	if result.IsPrime {
+		log.Printf("Number: %d, No Answer: %s\n", result.Number, nm.noAnswer)
+
+		nm.primeCanditates[result.Number] = [2]int{0, 0}
+		nm.resendQueue = append(nm.resendQueue, result.Number)
+		nm.resendQueue = append(nm.resendQueue, result.Number)
+		return
+
 	}
 
 }
