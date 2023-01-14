@@ -47,12 +47,16 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 		}
 	}
 
+
+
 	solution := numberManager.GetSolution()
+	log.Println("Solution found")
 	if solution == nil {
 		fmt.Fprintln(w, "No solution found!")
 	} else {
 		fmt.Fprintf(w, "%d\n", *solution)
 	}
+
 
 }
 

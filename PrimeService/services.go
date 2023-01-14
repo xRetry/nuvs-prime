@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"time"
+	"strings"
 )
 
 type PrimeResult struct {
@@ -71,10 +72,14 @@ func makeServerConnection(addr string, inputChan <-chan PrimeQuery) {
 	client := http.Client{Timeout: 5 * time.Second}
 
 	for {
+		log.Printf("%s waiting..\n", addr)
 		query := <-inputChan
+		log.Printf("%s got query: %d\n", addr, query.Number)
 		resp, err := client.Get(fmt.Sprintf("http://%s:2000/isPrime?val=%d", addr, query.Number))
+		log.Printf("%s got response for %d\n", addr, query.Number)
 
 		if err != nil {
+			log.Printf("Connection error %s\n", err)
 			query.RetChan <- PrimeResult{
 				Number:  query.Number,
 				IsPrime: false,
@@ -93,7 +98,7 @@ func makeServerConnection(addr string, inputChan <-chan PrimeQuery) {
 			continue
 		}
 
-		if string(body) == "TRUE" {
+		if strings.ToLower(string(body)) == "true" {
 			query.RetChan <- PrimeResult{
 				Number:  query.Number,
 				IsPrime: true,

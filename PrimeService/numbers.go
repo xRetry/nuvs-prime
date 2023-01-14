@@ -10,21 +10,23 @@ type NumberManager struct {
 	noAnswer        []int
 	resendQueue     []int
 	primeCanditates map[int][2]int
+	needsInit	bool
 }
 
 func makeNumberManager(numStart int) NumberManager {
 	log.Println("Initializing number manager")
 	return NumberManager{
 		numStart:        numStart,
-		noAnswer:        []int{numStart},
+		noAnswer:        make([]int, 0),
 		resendQueue:     make([]int, 0),
 		primeCanditates: make(map[int][2]int),
+		needsInit:	 true,
 	}
 }
 
 func (nm NumberManager) HasNext() bool {
 	// A prime number has been found and all previous numbers are answered
-	if nm.primeClosest != nil && *nm.primeClosest < nm.noAnswer[0] {
+	if nm.primeClosest != nil && len(nm.noAnswer) > 0 && *nm.primeClosest < nm.noAnswer[0] {
 		return false
 	}
 
@@ -46,8 +48,13 @@ func (nm *NumberManager) Next() *int {
 		nm.resendQueue = nm.resendQueue[1:]
 	} else if nm.primeClosest == nil {
 		// If no prime has been found continue increasing
-		numOld := nm.noAnswer[len(nm.noAnswer)-1] + 1
-		numNext = &numOld
+		if nm.needsInit {
+			numNext = &nm.numStart
+			nm.needsInit = false
+		} else {
+			numOld := nm.noAnswer[len(nm.noAnswer)-1] + 1
+			numNext = &numOld
+		}
 		nm.noAnswer = append(nm.noAnswer, *numNext)
 	}
 
