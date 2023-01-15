@@ -10,7 +10,7 @@ type NumberManager struct {
 	noAnswer        []int
 	resendQueue     []int
 	primeCanditates map[int][2]int
-	needsInit       bool
+	numLast         *int
 }
 
 func makeNumberManager(numStart int) NumberManager {
@@ -20,7 +20,7 @@ func makeNumberManager(numStart int) NumberManager {
 		noAnswer:        make([]int, 0),
 		resendQueue:     make([]int, 0),
 		primeCanditates: make(map[int][2]int),
-		needsInit:       true,
+		numLast:         nil,
 	}
 }
 
@@ -33,14 +33,14 @@ func (nm *NumberManager) Next() *int {
 		nm.resendQueue = nm.resendQueue[1:]
 	} else if nm.primeClosest == nil {
 		// If no prime has been found continue increasing
-		if nm.needsInit {
+		if nm.numLast == nil {
 			numNext = &nm.numStart
-			nm.needsInit = false
 		} else {
-			numOld := nm.noAnswer[len(nm.noAnswer)-1] + 1
-			numNext = &numOld
+			nNext := *nm.numLast + 1
+			numNext = &nNext
 		}
 		nm.noAnswer = append(nm.noAnswer, *numNext)
+		nm.numLast = numNext
 	}
 
 	// Otherwise send nil for no query
@@ -104,7 +104,7 @@ func (nm *NumberManager) CheckResult(result PrimeResult) bool {
 	}
 
 	// 100000 numbers have been searched and no solution has been found
-	if nm.noAnswer[len(nm.noAnswer)-1]-nm.numStart > 100000 {
+	if *nm.numLast-nm.numStart > 100000 {
 		return true
 	}
 

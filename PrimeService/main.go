@@ -32,7 +32,7 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 
 	// Sending a new query after each result
 	foundSolution := false
-	for foundSolution {
+	for !foundSolution {
 		result := <-returnChan
 
 		foundSolution = numberManager.CheckResult(result)
@@ -55,7 +55,6 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 	} else {
 		fmt.Fprintf(w, "%d\n", *solution)
 	}
-
 }
 
 func main() {
