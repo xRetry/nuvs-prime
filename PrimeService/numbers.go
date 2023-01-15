@@ -10,7 +10,7 @@ type NumberManager struct {
 	noAnswer        []int
 	resendQueue     []int
 	primeCanditates map[int][2]int
-	needsInit	bool
+	needsInit       bool
 }
 
 func makeNumberManager(numStart int) NumberManager {
@@ -20,23 +20,8 @@ func makeNumberManager(numStart int) NumberManager {
 		noAnswer:        make([]int, 0),
 		resendQueue:     make([]int, 0),
 		primeCanditates: make(map[int][2]int),
-		needsInit:	 true,
+		needsInit:       true,
 	}
-}
-
-func (nm NumberManager) HasNext() bool {
-	// A prime number has been found and all previous numbers are answered
-	if nm.primeClosest != nil && len(nm.noAnswer) > 0 && *nm.primeClosest < nm.noAnswer[0] {
-		return false
-	}
-
-	// 100000 numbers have been searched and no solution has been found
-	if nm.noAnswer[len(nm.noAnswer)-1]-nm.numStart > 100000 {
-		return false
-	}
-
-	// Continue iterating
-	return true
 }
 
 func (nm *NumberManager) Next() *int {
@@ -62,13 +47,13 @@ func (nm *NumberManager) Next() *int {
 	return numNext
 }
 
-func (nm *NumberManager) CheckResult(result PrimeResult) {
+func (nm *NumberManager) CheckResult(result PrimeResult) bool {
 	log.Printf("Checking result: number=%d, result=%s\n", result.Number, result.IsPrime)
 
 	// Resend number if error occured
 	if result.Error != nil {
 		nm.resendQueue = append(nm.resendQueue, result.Number)
-		return
+		return false
 	}
 
 	// Number is already a candidate
@@ -90,12 +75,12 @@ func (nm *NumberManager) CheckResult(result PrimeResult) {
 					*nm.primeClosest = result.Number
 				}
 			}
-			return
+			return false
 		}
 
 		// Update verification counts if results are pending
 		nm.primeCanditates[result.Number] = count
-		return
+		return false
 	}
 
 	// Find index of number in noAnswer slice and remove from slice
@@ -109,9 +94,21 @@ func (nm *NumberManager) CheckResult(result PrimeResult) {
 		nm.primeCanditates[result.Number] = [2]int{0, 0}
 		nm.resendQueue = append(nm.resendQueue, result.Number)
 		nm.resendQueue = append(nm.resendQueue, result.Number)
-		return
+		return false
 
 	}
+
+	// A prime number has been found and all previous numbers are answered
+	if nm.primeClosest != nil && len(nm.noAnswer) > 0 && *nm.primeClosest < nm.noAnswer[0] {
+		return true
+	}
+
+	// 100000 numbers have been searched and no solution has been found
+	if nm.noAnswer[len(nm.noAnswer)-1]-nm.numStart > 100000 {
+		return true
+	}
+
+	return false
 
 }
 

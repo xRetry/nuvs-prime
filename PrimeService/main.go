@@ -31,23 +31,22 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 	}
 
 	// Sending a new query after each result
-	for numberManager.HasNext() {
+	foundSolution := false
+	for foundSolution {
 		result := <-returnChan
 
-		numNext := numberManager.Next()
+		foundSolution = numberManager.CheckResult(result)
 
+		numNext := numberManager.Next()
 		if numNext == nil {
 			continue
 		}
 
-		numberManager.CheckResult(result)
 		inputChan <- PrimeQuery{
 			Number:  *numNext,
 			RetChan: returnChan,
 		}
 	}
-
-
 
 	solution := numberManager.GetSolution()
 	log.Println("Solution found")
@@ -56,7 +55,6 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 	} else {
 		fmt.Fprintf(w, "%d\n", *solution)
 	}
-
 
 }
 
