@@ -83,13 +83,6 @@ func (nm *NumberManager) CheckResult(result PrimeResponse) bool {
 		}
 
 	} else {
-		if result.Number == nm.numFirstPending {
-			if len(nm.noAnswer) > 0 {
-				nm.numFirstPending = nm.noAnswer[0]
-			} else {
-				nm.numFirstPending = nm.numStart + 1e16
-			}
-		}
 
 		// Find index of number in noAnswer slice and remove from slice
 		searchIdx := binarySearch(nm.noAnswer, result.Number)
@@ -97,8 +90,15 @@ func (nm *NumberManager) CheckResult(result PrimeResponse) bool {
 			return false
 		}
 		idxNum := searchIdx.Unwrap()
-
 		nm.noAnswer = append(nm.noAnswer[:idxNum], nm.noAnswer[idxNum+1:]...)
+
+		if result.Number == nm.numFirstPending {
+			if len(nm.noAnswer) > 0 {
+				nm.numFirstPending = nm.noAnswer[0]
+			} else {
+				nm.numFirstPending = nm.numStart + 1e16
+			}
+		}
 
 		// Resend number twice to verify the result
 		if result.IsPrime {
