@@ -6,19 +6,18 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"time"
 	"strings"
+	"time"
 )
 
-type PrimeResult struct {
+type PrimeResponse struct {
 	Number  int
-	IsPrime bool
-	Error   error
+	IsPrime Result[bool]
 }
 
 type PrimeQuery struct {
 	Number  int
-	RetChan chan PrimeResult
+	RetChan chan PrimeResponse
 }
 
 type AvailableService struct {
@@ -37,7 +36,7 @@ func initServers() (chan PrimeQuery, error) {
 	inputChan := make(chan PrimeQuery)
 
 	for _, addr := range availAddrs {
-		go makeServerConnection(addr, inputChan)
+		go makeServerHandler(addr, inputChan)
 	}
 
 	return inputChan, nil
@@ -49,14 +48,14 @@ func findAvailableServers() ([]string, error) {
 
 	resp, err := client.Get("http://10.21.0.13:2020/api/v1.0/active-http-services")
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	var availServices []AvailableService
 	err = json.NewDecoder(resp.Body).Decode(&availServices)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
 	addrs := make([]string, 0)
@@ -67,50 +66,48 @@ func findAvailableServers() ([]string, error) {
 	return addrs, nil
 }
 
-func makeServerConnection(addr string, inputChan <-chan PrimeQuery) {
+func makeServerHandler(addr string, inputChan <-chan PrimeQuery) {
 	log.Printf("Connection started on address: %s\n", addr)
-	client := http.Client{Timeout: 5 * time.Second}
 
 	for {
 		log.Printf("%s waiting..\n", addr)
 		query := <-inputChan
+
 		log.Printf("%s got query: %d\n", addr, query.Number)
-		resp, err := client.Get(fmt.Sprintf("http://%s:2000/isPrime?val=%d", addr, query.Number))
-		log.Printf("%s got response for %d\n", addr, query.Number)
+		go queryServer(addr, query)
+	}
+}
 
-		if err != nil {
-			log.Printf("Connection error %s\n", err)
-			query.RetChan <- PrimeResult{
-				Number:  query.Number,
-				IsPrime: false,
-				Error:   err,
-			}
-			continue
-		}
-
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			query.RetChan <- PrimeResult{
-				Number:  query.Number,
-				IsPrime: false,
-				Error:   err,
-			}
-			continue
-		}
-
-		if strings.ToLower(string(body)) == "true" {
-			query.RetChan <- PrimeResult{
-				Number:  query.Number,
-				IsPrime: true,
-				Error:   nil,
-			}
-			continue
-		}
-
-		query.RetChan <- PrimeResult{
+func queryServer(addr string, query PrimeQuery) {
+	client := http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(fmt.Sprintf("http://%s:2000/isPrime?val=%d", addr, query.Number))
+	log.Printf("%s got response for %d\n", addr, query.Number)
+	if err != nil {
+		log.Printf("Connection error %s\n", err)
+		query.RetChan <- PrimeResponse{
 			Number:  query.Number,
-			IsPrime: false,
-			Error:   nil,
+			IsPrime: Err[bool](err),
 		}
 	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if body != nil {
+		query.RetChan <- PrimeResponse{
+			Number:  query.Number,
+			IsPrime: Err[bool](err),
+		}
+	}
+
+	if strings.ToLower(string(body)) == "true" {
+		query.RetChan <- PrimeResponse{
+			Number:  query.Number,
+			IsPrime: Ok(true),
+		}
+	}
+
+	query.RetChan <- PrimeResponse{
+		Number:  query.Number,
+		IsPrime: Ok(false),
+	}
+
 }

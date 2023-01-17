@@ -17,7 +17,7 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 	}
 
 	// Creating client channel for results
-	returnChan := make(chan PrimeResult)
+	returnChan := make(chan PrimeResponse)
 
 	// Creating number manager
 	numberManager := makeNumberManager(number)
@@ -25,7 +25,7 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 	// Sending 5 prime queries
 	for i := 0; i < 5; i++ {
 		inputChan <- PrimeQuery{
-			Number:  *numberManager.Next(),
+			Number:  numberManager.Next().Unwrap(),
 			RetChan: returnChan,
 		}
 	}
@@ -38,22 +38,22 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 		foundSolution = numberManager.CheckResult(result)
 
 		numNext := numberManager.Next()
-		if numNext == nil {
+		if numNext.IsNone() {
 			continue
 		}
 
 		inputChan <- PrimeQuery{
-			Number:  *numNext,
+			Number:  numNext.Unwrap(),
 			RetChan: returnChan,
 		}
 	}
 
 	solution := numberManager.GetSolution()
 	log.Println("Solution found")
-	if solution == nil {
+	if solution.IsNone() {
 		fmt.Fprintln(w, "No solution found!")
 	} else {
-		fmt.Fprintf(w, "%d\n", *solution)
+		fmt.Fprintf(w, "%d\n", solution.Unwrap())
 	}
 }
 
