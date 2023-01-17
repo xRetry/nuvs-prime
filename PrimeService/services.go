@@ -90,15 +90,17 @@ func queryServer(addr string, query PrimeQuery) {
 			IsPrime: false,
 			Error:   err,
 		}
+		return
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
-	if body != nil {
+	if err != nil {
 		query.RetChan <- PrimeResponse{
 			Number:  query.Number,
 			IsPrime: false,
 			Error:   err,
 		}
+		return
 	}
 
 	if strings.ToLower(string(body)) == "true" {
@@ -107,6 +109,7 @@ func queryServer(addr string, query PrimeQuery) {
 			IsPrime: true,
 			Error:   nil,
 		}
+		return
 	}
 
 	query.RetChan <- PrimeResponse{

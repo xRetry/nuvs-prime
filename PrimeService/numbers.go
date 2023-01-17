@@ -11,6 +11,7 @@ type NumberManager struct {
 	resendQueue     []int
 	primeCanditates map[int][2]int
 	numLast         Option[int]
+	numFirstPending int
 }
 
 func makeNumberManager(numStart int) NumberManager {
@@ -22,6 +23,7 @@ func makeNumberManager(numStart int) NumberManager {
 		resendQueue:     make([]int, 0),
 		primeCanditates: make(map[int][2]int),
 		numLast:         None[int](),
+		numFirstPending: numStart,
 	}
 }
 
@@ -64,42 +66,54 @@ func (nm *NumberManager) CheckResult(result PrimeResponse) bool {
 			count[1] += 1
 		}
 
-		// Both verification results have been received
-		if count[0] == 2 {
-			delete(nm.primeCanditates, result.Number)
-			if count[1] > 0 {
-				if nm.primeClosest.IsNone() {
-					nm.primeClosest = Some(result.Number)
-				} else if result.Number < nm.primeClosest.Unwrap() {
-					nm.primeClosest = Some(result.Number)
-				}
-			}
+		// Update verification counts if results are pending
+		if count[0] < 2 || count[1] == 0 {
+			nm.primeCanditates[result.Number] = count
 			return false
 		}
 
-		// Update verification counts if results are pending
-		nm.primeCanditates[result.Number] = count
-		return false
-	}
+		// Both verification results have been received
+		delete(nm.primeCanditates, result.Number)
+		if count[1] > 0 {
+			if nm.primeClosest.IsNone() {
+				nm.primeClosest = Some(result.Number)
+			} else if result.Number < nm.primeClosest.Unwrap() {
+				nm.primeClosest = Some(result.Number)
+			}
+		}
 
-	// Find index of number in noAnswer slice and remove from slice
-	searchIdx := binarySearch(nm.noAnswer, result.Number)
-	idxNum := searchIdx.Unwrap()
-	nm.noAnswer = append(nm.noAnswer[:idxNum], nm.noAnswer[idxNum+1:]...)
+	} else {
+		if result.Number == nm.numFirstPending {
+			if len(nm.noAnswer) > 0 {
+				nm.numFirstPending = nm.noAnswer[0]
+			} else {
+				nm.numFirstPending = nm.numStart + 1e16
+			}
+		}
 
-	// Resend number twice to verify the result
-	if result.IsPrime {
-		log.Printf("Number: %d, No Answer: %s\n", result.Number, nm.noAnswer)
+		// Find index of number in noAnswer slice and remove from slice
+		searchIdx := binarySearch(nm.noAnswer, result.Number)
+		if searchIdx.IsNone() {
+			return false
+		}
+		idxNum := searchIdx.Unwrap()
 
-		nm.primeCanditates[result.Number] = [2]int{0, 0}
-		nm.resendQueue = append(nm.resendQueue, result.Number)
-		nm.resendQueue = append(nm.resendQueue, result.Number)
-		return false
+		nm.noAnswer = append(nm.noAnswer[:idxNum], nm.noAnswer[idxNum+1:]...)
 
+		// Resend number twice to verify the result
+		if result.IsPrime {
+			log.Printf("Number: %d, No Answer: %s\n", result.Number, nm.noAnswer)
+
+			nm.primeCanditates[result.Number] = [2]int{0, 0}
+			nm.resendQueue = append(nm.resendQueue, result.Number)
+			nm.resendQueue = append(nm.resendQueue, result.Number)
+			return false
+
+		}
 	}
 
 	// A prime number has been found and all previous numbers are answered
-	if nm.primeClosest.IsSome() && len(nm.noAnswer) > 0 && nm.primeClosest.Unwrap() < nm.noAnswer[0] {
+	if nm.primeClosest.IsSome() && nm.primeClosest.Unwrap() < nm.numFirstPending {
 		return true
 	}
 
