@@ -50,18 +50,17 @@ func (nm *NumberManager) CheckResult(result PrimeResponse) bool {
 	log.Printf("Checking result: number=%d, result=%s\n", result.Number, result.IsPrime)
 
 	// Resend number if error occured
-	if result.IsPrime.IsErr() {
+	if result.Error != nil {
 		nm.resendQueue = append(nm.resendQueue, result.Number)
 		return false
 	}
-	isPrime := result.IsPrime.Unwrap()
 
 	// Number is already a candidate
 	count, isIn := nm.primeCanditates[result.Number]
 	if isIn {
 		// Increase the verification counts
 		count[0] += 1
-		if isPrime {
+		if result.IsPrime {
 			count[1] += 1
 		}
 
@@ -89,7 +88,7 @@ func (nm *NumberManager) CheckResult(result PrimeResponse) bool {
 	nm.noAnswer = append(nm.noAnswer[:idxNum], nm.noAnswer[idxNum+1:]...)
 
 	// Resend number twice to verify the result
-	if isPrime {
+	if result.IsPrime {
 		log.Printf("Number: %d, No Answer: %s\n", result.Number, nm.noAnswer)
 
 		nm.primeCanditates[result.Number] = [2]int{0, 0}
