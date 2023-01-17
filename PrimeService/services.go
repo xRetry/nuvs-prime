@@ -12,7 +12,8 @@ import (
 
 type PrimeResponse struct {
 	Number  int
-	IsPrime Result[bool]
+	IsPrime bool
+	Error   error
 }
 
 type PrimeQuery struct {
@@ -86,7 +87,8 @@ func queryServer(addr string, query PrimeQuery) {
 		log.Printf("Connection error %s\n", err)
 		query.RetChan <- PrimeResponse{
 			Number:  query.Number,
-			IsPrime: Err[bool](err),
+			IsPrime: false,
+			Error:   err,
 		}
 	}
 
@@ -94,20 +96,23 @@ func queryServer(addr string, query PrimeQuery) {
 	if body != nil {
 		query.RetChan <- PrimeResponse{
 			Number:  query.Number,
-			IsPrime: Err[bool](err),
+			IsPrime: false,
+			Error:   err,
 		}
 	}
 
 	if strings.ToLower(string(body)) == "true" {
 		query.RetChan <- PrimeResponse{
 			Number:  query.Number,
-			IsPrime: Ok(true),
+			IsPrime: true,
+			Error:   nil,
 		}
 	}
 
 	query.RetChan <- PrimeResponse{
 		Number:  query.Number,
-		IsPrime: Ok(false),
+		IsPrime: false,
+		Error:   nil,
 	}
 
 }
