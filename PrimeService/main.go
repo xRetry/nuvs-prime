@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQuery) {
@@ -58,12 +59,21 @@ func findPrime(w http.ResponseWriter, req *http.Request, inputChan chan PrimeQue
 }
 
 func main() {
-	inputChan, err := initServers()
+	serviceManager := makeServiceManger()
+	err := serviceManager.updateServices()
 	if err != nil {
 		log.Fatalf("Unable to initialize server\n\tError: %s", err)
 	}
+
+	go func(sm *ServiceManager) {
+		for {
+			time.Sleep(time.Minute * 10)
+			_ = sm.updateServices()
+		}
+	}(serviceManager)
+
 	http.HandleFunc("/findPrime",
-		func(w http.ResponseWriter, req *http.Request) { findPrime(w, req, inputChan) },
+		func(w http.ResponseWriter, req *http.Request) { findPrime(w, req, serviceManager.inputChan) },
 	)
 
 	http.ListenAndServe(":2030", nil)

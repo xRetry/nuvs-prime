@@ -27,20 +27,77 @@ type AvailableService struct {
 	Valid  int    `json:"valid"`
 }
 
-func initServers() (chan PrimeQuery, error) {
+type ServiceManager struct {
+	activeServices map[string]chan bool
+	inputChan      chan PrimeQuery
+}
+
+func makeServiceManger() *ServiceManager {
+	return &ServiceManager{
+		activeServices: make(map[string]chan bool),
+		inputChan:      make(chan PrimeQuery),
+	}
+}
+
+func (sm *ServiceManager) updateServices() error {
 	log.Println("Starting service initialization")
 	availAddrs, err := findAvailableServers()
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	inputChan := make(chan PrimeQuery)
 
 	for _, addr := range availAddrs {
-		go makeServerHandler(addr, inputChan)
+		isOk := verifyService(addr)
+		quitChan, isActive := sm.activeServices[addr]
+		if isActive {
+			if !isOk {
+				quitChan <- true
+				delete(sm.activeServices, addr)
+			}
+			continue
+		}
+		if !isOk {
+			continue
+		}
+
+		quitChan = make(chan bool)
+		sm.activeServices[addr] = quitChan
+		go handleServiceConnection(addr, sm.inputChan, quitChan)
 	}
 
-	return inputChan, nil
+	return nil
+}
+
+func verifyService(addr string) bool {
+	testNumbers := map[int]bool{
+		11: true,
+		12: false,
+		21: false,
+		23: true,
+	}
+	retChan := make(chan PrimeResponse, 1)
+
+	testQueries := make([]PrimeQuery, len(testNumbers))
+	for num := range testNumbers {
+		testQueries = append(
+			testQueries,
+			PrimeQuery{
+				Number:  num,
+				RetChan: retChan,
+			},
+		)
+	}
+
+	for _, query := range testQueries {
+		queryServer(addr, query)
+		resp := <-retChan
+
+		if resp.Error != nil || resp.IsPrime != testNumbers[resp.Number] {
+			return false
+		}
+	}
+
+	return true
 }
 
 func findAvailableServers() ([]string, error) {
@@ -67,15 +124,18 @@ func findAvailableServers() ([]string, error) {
 	return addrs, nil
 }
 
-func makeServerHandler(addr string, inputChan <-chan PrimeQuery) {
+func handleServiceConnection(addr string, inputChan <-chan PrimeQuery, quitChan <-chan bool) {
 	log.Printf("Connection started on address: %s\n", addr)
 
 	for {
 		log.Printf("%s waiting..\n", addr)
-		query := <-inputChan
-
-		log.Printf("%s got query: %d\n", addr, query.Number)
-		go queryServer(addr, query)
+		select {
+		case <-quitChan:
+			break
+		case query := <-inputChan:
+			log.Printf("%s got query: %d\n", addr, query.Number)
+			go queryServer(addr, query)
+		}
 	}
 }
 
