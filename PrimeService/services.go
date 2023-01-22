@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -163,7 +164,7 @@ func queryServer(addr string, query PrimeQuery) {
 		return
 	}
 
-	if strings.ToLower(string(body)) == "true" {
+	if strings.ToLower(string(body)) == "true\n" {
 		query.RetChan <- PrimeResponse{
 			Number:  query.Number,
 			IsPrime: true,
@@ -172,10 +173,19 @@ func queryServer(addr string, query PrimeQuery) {
 		return
 	}
 
+	if strings.ToLower(string(body)) == "false\n" {
+		query.RetChan <- PrimeResponse{
+			Number:  query.Number,
+			IsPrime: false,
+			Error:   nil,
+		}
+		return
+	}
+
 	query.RetChan <- PrimeResponse{
 		Number:  query.Number,
 		IsPrime: false,
-		Error:   nil,
+		Error:   errors.New("Response body not true or false"),
 	}
 
 }

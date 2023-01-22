@@ -49,7 +49,7 @@ func (nm *NumberManager) Next() Option[int] {
 }
 
 func (nm *NumberManager) CheckResult(result PrimeResponse) bool {
-	log.Printf("Checking result: number=%d, result=%s\n", result.Number, result.IsPrime)
+	log.Printf("Checking result: %s\n", result)
 
 	// Resend number if error occured
 	if result.Error != nil {
