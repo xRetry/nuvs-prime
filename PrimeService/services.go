@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -40,31 +39,49 @@ func makeServiceManger() *ServiceManager {
 	}
 }
 
+type NoServiceError struct{}
+
+func (e NoServiceError) Error() string {
+	return "No prime service available"
+}
+
 func (sm *ServiceManager) updateServices() error {
-	log.Println("Starting service initialization")
+	lg.Println("[Service Manager] Starting service initialization")
 	availAddrs, err := findAvailableServers()
 	if err != nil {
 		return err
 	}
 
+	newActiveServices := make(map[string]chan bool)
+
 	for _, addr := range availAddrs {
 		isOk := verifyService(addr)
 		quitChan, isActive := sm.activeServices[addr]
-		if isActive {
-			if !isOk {
-				quitChan <- true
-				delete(sm.activeServices, addr)
-			}
-			continue
-		}
+
 		if !isOk {
 			continue
 		}
 
-		quitChan = make(chan bool)
-		sm.activeServices[addr] = quitChan
+		if isActive {
+			delete(sm.activeServices, addr)
+		}
+
+		newActiveServices[addr] = quitChan
 		go handleServiceConnection(addr, sm.inputChan, quitChan)
 	}
+
+	//Close invalid services
+	for _, quit := range sm.activeServices {
+		quit <- true
+	}
+
+	if len(newActiveServices) == 0 {
+		quitChan := make(chan bool)
+		newActiveServices["Inactive"] = quitChan
+		go handleNoServiceActive(sm.inputChan, quitChan)
+	}
+
+	sm.activeServices = newActiveServices
 
 	return nil
 }
@@ -102,7 +119,7 @@ func verifyService(addr string) bool {
 }
 
 func findAvailableServers() ([]string, error) {
-	log.Println("Finding available services")
+	lg.Println("[Service Manager] Finding available services")
 	client := http.Client{Timeout: 10 * time.Second}
 
 	resp, err := client.Get("http://10.21.0.13:2020/api/v1.0/active-http-services")
@@ -121,20 +138,34 @@ func findAvailableServers() ([]string, error) {
 	for _, service := range availServices {
 		addrs = append(addrs, service.Ip)
 	}
-	log.Printf("Services found: %d\n", len(addrs))
+	lg.Printf("Services found: %d\n", len(addrs))
 	return addrs, nil
 }
 
+func handleNoServiceActive(inputChan <-chan PrimeQuery, quitChan <-chan bool) {
+	lg.Println("[Service Manager] No service active handler started")
+	for {
+		query := <-inputChan
+		query.RetChan <- PrimeResponse{
+			Number:  query.Number,
+			IsPrime: false,
+			Error:   NoServiceError{},
+		}
+
+	}
+}
+
 func handleServiceConnection(addr string, inputChan <-chan PrimeQuery, quitChan <-chan bool) {
-	log.Printf("Connection started on address: %s\n", addr)
+	lg.Printf("[Service Manager] Connection started on address: %s\n", addr)
 
 	for {
-		log.Printf("%s waiting..\n", addr)
+		lg.Printf("%s waiting..\n", addr)
 		select {
 		case <-quitChan:
 			break
 		case query := <-inputChan:
-			log.Printf("%s got query: %d\n", addr, query.Number)
+			lg.Printf("%s got query: %d\n", addr, query.Number)
+
 			go queryServer(addr, query)
 		}
 	}
@@ -143,9 +174,9 @@ func handleServiceConnection(addr string, inputChan <-chan PrimeQuery, quitChan 
 func queryServer(addr string, query PrimeQuery) {
 	client := http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(fmt.Sprintf("http://%s:2000/isPrime?val=%d", addr, query.Number))
-	log.Printf("%s got response for %d\n", addr, query.Number)
+	lg.Printf("[Service Manager] %s got response for %d\n", addr, query.Number)
 	if err != nil {
-		log.Printf("Connection error %s\n", err)
+		lg.Printf("Connection error %s\n", err)
 		query.RetChan <- PrimeResponse{
 			Number:  query.Number,
 			IsPrime: false,

@@ -1,9 +1,5 @@
 package main
 
-import (
-	"log"
-)
-
 type NumberManager struct {
 	numStart        int
 	primeClosest    Option[int]
@@ -15,7 +11,7 @@ type NumberManager struct {
 }
 
 func makeNumberManager(numStart int) NumberManager {
-	log.Println("Initializing number manager")
+	lg.Println("[Number Manager] Initializing number manager")
 	return NumberManager{
 		numStart:        numStart,
 		primeClosest:    None[int](),
@@ -49,7 +45,7 @@ func (nm *NumberManager) Next() Option[int] {
 }
 
 func (nm *NumberManager) CheckResult(result PrimeResponse) bool {
-	log.Printf("Checking result: %s\n", result)
+	lg.Printf("[Number Manager] Checking result: %s\n", result)
 
 	// Resend number if error occured
 	if result.Error != nil {
@@ -102,7 +98,7 @@ func (nm *NumberManager) CheckResult(result PrimeResponse) bool {
 
 		// Resend number twice to verify the result
 		if result.IsPrime {
-			log.Printf("Number: %d, No Answer: %s\n", result.Number, nm.noAnswer)
+			lg.Printf("[Number Manager] Number: %d, No Answer: %s\n", result.Number, nm.noAnswer)
 
 			nm.primeCanditates[result.Number] = [2]int{0, 0}
 			nm.resendQueue = append(nm.resendQueue, result.Number)
