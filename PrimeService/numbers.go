@@ -38,6 +38,7 @@ func (nm *NumberManager) Next() Option[int] {
 			} else {
 				numNext = Some(nm.numStart)
 			}
+			nm.numFirstPending = numNext.Unwrap()
 		} else {
 			numNext = Some(nm.numLast.Unwrap() + 2)
 		}

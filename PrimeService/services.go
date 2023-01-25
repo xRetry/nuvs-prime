@@ -27,6 +27,12 @@ type AvailableService struct {
 	Valid  int    `json:"valid"`
 }
 
+type NoServiceError struct{}
+
+func (e NoServiceError) Error() string {
+	return "No prime service available"
+}
+
 type ServiceManager struct {
 	activeServices map[string]chan bool
 	inputChan      chan PrimeQuery
@@ -37,12 +43,6 @@ func makeServiceManger() *ServiceManager {
 		activeServices: make(map[string]chan bool),
 		inputChan:      make(chan PrimeQuery),
 	}
-}
-
-type NoServiceError struct{}
-
-func (e NoServiceError) Error() string {
-	return "No prime service available"
 }
 
 func (sm *ServiceManager) updateServices() error {
