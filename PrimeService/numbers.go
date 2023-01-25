@@ -84,27 +84,7 @@ func (nm *NumberManager) CheckResult(result PrimeResponse) bool {
 		}
 
 	} else {
-
-		// Find index of number in noAnswer slice and remove from slice
-		searchIdx := binarySearch(nm.noAnswer, result.Number)
-		if searchIdx.IsNone() {
-			return false
-		}
-		idxNum := searchIdx.Unwrap()
-		nm.noAnswer = append(nm.noAnswer[:idxNum], nm.noAnswer[idxNum+1:]...)
-
-		if result.Number == nm.numFirstPending {
-			if len(nm.noAnswer) > 0 {
-				nm.numFirstPending = nm.noAnswer[0]
-			} else {
-				nm.numFirstPending = nm.numStart + 1e16
-			}
-		}
-
-		// Resend number twice to verify the result
 		if result.IsPrime {
-			lg.Printf("[Number Manager] Number: %d, No Answer: %s\n", result.Number, nm.noAnswer)
-
 			nm.primeCanditates[result.Number] = [2]int{0, 0}
 			nm.resendQueue = append(nm.resendQueue, result.Number)
 			nm.resendQueue = append(nm.resendQueue, result.Number)
@@ -113,8 +93,24 @@ func (nm *NumberManager) CheckResult(result PrimeResponse) bool {
 		}
 	}
 
+	// Find index of number in noAnswer slice and remove from slice
+	searchIdx := binarySearch(nm.noAnswer, result.Number)
+	if searchIdx.IsNone() {
+		return false
+	}
+	idxNum := searchIdx.Unwrap()
+	nm.noAnswer = append(nm.noAnswer[:idxNum], nm.noAnswer[idxNum+1:]...)
+
+	if result.Number == nm.numFirstPending {
+		if len(nm.noAnswer) > 0 {
+			nm.numFirstPending = nm.noAnswer[0]
+		} else {
+			nm.numFirstPending = nm.numStart + 1e16
+		}
+	}
+
 	// A prime number has been found and all previous numbers are answered
-	if nm.primeClosest.IsSome() && nm.primeClosest.Unwrap() < nm.numFirstPending {
+	if nm.primeClosest.IsSome() && (len(nm.noAnswer) == 0 || nm.primeClosest.Unwrap() < nm.noAnswer[0]) {
 		return true
 	}
 
