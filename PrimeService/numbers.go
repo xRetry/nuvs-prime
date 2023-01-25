@@ -33,9 +33,13 @@ func (nm *NumberManager) Next() Option[int] {
 	} else if nm.primeClosest.IsNone() {
 		// If no prime has been found continue increasing
 		if nm.numLast.IsNone() {
-			numNext = Some(nm.numStart)
+			if nm.numStart != 2 && nm.numStart%2 == 0 {
+				numNext = Some(nm.numStart + 1)
+			} else {
+				numNext = Some(nm.numStart)
+			}
 		} else {
-			numNext = Some(nm.numLast.Unwrap() + 1)
+			numNext = Some(nm.numLast.Unwrap() + 2)
 		}
 		nm.noAnswer = append(nm.noAnswer, numNext.Unwrap())
 		nm.numLast = numNext
