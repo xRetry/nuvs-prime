@@ -75,10 +75,10 @@ func (sm *ServiceManager) updateServices() error {
 		quit <- true
 	}
 
-	if 0 == 0 {
+	if len(newActiveServices) == 0 {
 		quitChan := make(chan bool)
 		newActiveServices["Inactive"] = quitChan
-		go hand0
+		go handleNoServiceActive(sm.inputChan, quitChan)
 	}
 
 	sm.activeServices = newActiveServices
